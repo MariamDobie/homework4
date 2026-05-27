@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './App.css';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
@@ -18,12 +18,13 @@ function App() {
   const [toast, setToast] = useState(null);
   const toastTimeoutRef = useRef(null);
 
-  // Fetch menu from backend
-  useEffect(() => {
-    loadMenu();
-  }, []);
+  const showToast = (message) => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setToast(message);
+    toastTimeoutRef.current = setTimeout(() => setToast(null), 3000);
+  };
 
-  const loadMenu = async () => {
+  const loadMenu = useCallback(async () => {
     try {
       const data = await fetchMenu();
       setMenuItems(data);
@@ -33,19 +34,17 @@ function App() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const showToast = (message) => {
-    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-    setToast(message);
-    toastTimeoutRef.current = setTimeout(() => setToast(null), 3000);
-  };
+  useEffect(() => {
+    loadMenu();
+  }, [loadMenu]);
 
   const addToCart = (name, price) => {
     setCart(prevCart => {
       const existingItem = prevCart.find(item => item.name === name);
       if (existingItem) {
-        showToast(`${name} quantity: ${existingItem.quantity + 1}`);
+        showToast(`${name} quantity increased to ${existingItem.quantity + 1}`);
         return prevCart.map(item =>
           item.name === name ? { ...item, quantity: item.quantity + 1 } : item
         );
@@ -60,7 +59,7 @@ function App() {
     setCart(prevCart => {
       const existingItem = prevCart.find(item => item.name === name);
       if (existingItem.quantity > 1) {
-        showToast(`${name} removed (${existingItem.quantity - 1} left)`);
+        showToast(`${name} removed (${existingItem.quantity - 1} left in cart)`);
         return prevCart.map(item =>
           item.name === name ? { ...item, quantity: item.quantity - 1 } : item
         );
@@ -76,13 +75,14 @@ function App() {
     showToast('Cart cleared successfully');
   };
 
-  const placeOrderHandler = async () => {
+  const handlePlaceOrder = async () => {
     if (cart.length === 0) {
-      showToast('Your cart is empty!');
+      showToast('Your cart is empty');
       return;
     }
 
     const orderData = {
+      customerName: 'Guest',
       items: cart,
       totalAmount: getCartTotal(),
       status: 'pending'
@@ -121,7 +121,7 @@ function App() {
         removeFromCart={removeFromCart} 
         clearCart={clearCart}
         total={getCartTotal()}
-        placeOrder={placeOrderHandler}
+        placeOrder={handlePlaceOrder}
       />
       <Gallery />
       <About />
